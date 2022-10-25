@@ -1,0 +1,79 @@
+#include "config.h"  
+ #include "lpc13xx_gpio.h"  
+ boolean blueLedState = TRUE;  
+ boolean greenLedState = TRUE;  
+ int main(void)  
+ {  
+  u32_t time = millis();  
+  InitializeSystem();          // Initialize System Clock and SysTick Interrupt  
+  // Power On the GPIO Clock  
+  SYSCON_AHBPeriphClockCmd(SYSCON_AHBPeriph_GPIO, ENABLE);  
+  // Set Direction as Output  
+  GPIO_SetDir(PORT1, GreenLED, 1);  
+  GPIO_SetDir(PORT1, BlueLED, 1);  
+  // Supply Power to 16-bit Timer Module-0  
+  SYSCON_AHBPeriphClockCmd(SYSCON_AHBPeriph_CT16B0, ENABLE);  
+  // Following Values of Match Register and Prescale Register,  
+  // is used to produce interrupt @ 1 millisecond.  
+  // Match Register Value  
+  LPC_TMR16B0->MR0 = 720-1;  
+  // LPC_TMR16B0->PC will count from 0-100 to increment TC by One  
+  LPC_TMR16B0->PR = 100;  
+  // Generate Interrupt when Match Register 0 = TC  
+  // Clear TC contents  
+  LPC_TMR16B0->MCR = 0x03;  
+  // Reset Counter  
+  LPC_TMR16B0->TCR |= (1<<1);  
+  LPC_TMR16B0->TCR &= ~(1<<1);  
+  // Enable Timer-0 Interrupt  
+  NVIC_EnableIRQ(TIMER_16_0_IRQn);  
+  // Start Timer  
+  LPC_TMR16B0->TCR |= (1<<0);  
+  while(1)  
+  {  
+   if(millis() - time > 1000 )  
+   {  
+    time = millis();  
+    // Toggle Green Led State  
+    if(greenLedState == TRUE)  
+    {  
+     greenLedState = FALSE;  
+     // Set GPIO pins State High  
+     GPIO_SetBits(PORT1, GreenLED);  
+    }  
+    else  
+    {  
+     greenLedState = TRUE;  
+     // Set GPIO pins State Low  
+     GPIO_ResetBits(PORT1, GreenLED);  
+    }  
+   }  
+  }  
+ }  
+ //===================================================//  
+ // Timer-0 16 Bit Interrupt Handler  
+ // Toggles Blue Led State, after 1 second  
+ // This is approximate.  
+ //===================================================//  
+ void TIMER16_0_IRQHandler(void)  
+ {  
+  static u32_t count = 0;  
+  count++;  
+  if(count % 1000 == 999)    // Change Led Status after 1 second  
+  {  
+   // Toggle Blue Led State  
+   if(blueLedState == TRUE)  
+   {  
+    blueLedState = FALSE;  
+    // Set GPIO pins State High  
+    GPIO_SetBits(PORT1, BlueLED);  
+   }  
+   else  
+   {  
+    blueLedState = TRUE;  
+    // Set GPIO pins State Low  
+    GPIO_ResetBits(PORT1, BlueLED);  
+   }  
+  }  
+  LPC_TMR16B0->IR = 0x01;    // Clear Interrupt  
+ }
